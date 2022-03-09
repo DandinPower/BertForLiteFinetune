@@ -38,17 +38,17 @@ def load_finetune_model(path, num_hiddens, ffn_num_hiddens,num_heads, num_layers
 class BERTClassifier(nn.Module):
     def __init__(self, bert):
         super(BERTClassifier, self).__init__()
-        self.encoder = bert.encoder
-        self.hidden = bert.hidden
-        self.output = nn.Linear(256, 3)
+        #self.encoder = bert.encoder
+        #self.hidden = bert.hidden
+        self.output = nn.Linear(256, 2)
         self.bert = bert 
         self.bert.eval()
     def forward(self, inputs):
         tokens_X, segments_X, valid_lens_x = inputs
-        encoded_X = self.encoder(tokens_X, segments_X, valid_lens_x)
+        #encoded_X = self.encoder(tokens_X, segments_X, valid_lens_x)
         result,_,_ = self.bert(tokens_X, segments_X, valid_lens_x)
         #print(self.output(result))
-        original = self.output(self.hidden(encoded_X[:, 0, :]))
+        #original = self.output(self.hidden(encoded_X[:, 0, :]))
         new = self.output(result[:,0,:])
         return new
         #return self.output(result)

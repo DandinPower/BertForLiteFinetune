@@ -1659,7 +1659,7 @@ def finetune_train(net, train_iter, test_iter, loss, trainer, num_epochs, savePa
             metric.add(l, acc, labels.shape[0], labels.numel())
             timer.stop()
             pBar.update(int((j / (total - 1)) * 100))
-        j += 1        
+            j += 1        
         pBar.finish()
         test_acc = d2l.evaluate_accuracy_gpu(net, test_iter)
         print(f'cost time: {round(time.time() - startTime,3)} sec')

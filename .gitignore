@@ -1,0 +1,3 @@
+data
+models/bert_finetune.model
+dataset/reviews_medium.csv

@@ -44,13 +44,17 @@ class BERTClassifier(nn.Module):
         self.bert = bert 
         self.bert.eval()
     def forward(self, inputs):
+        
         tokens_X, segments_X, valid_lens_x = inputs
-        #encoded_X = self.encoder(tokens_X, segments_X, valid_lens_x)
-        result,_,_ = self.bert(tokens_X, segments_X, valid_lens_x)
-        #print(self.output(result))
-        #original = self.output(self.hidden(encoded_X[:, 0, :]))
+        with torch.no_grad():
+            result,_,_ = self.bert(tokens_X, segments_X, valid_lens_x)
         new = self.output(result[:,0,:])
         return new
+        #print(self.output(result))
+        #encoded_X = self.encoder(tokens_X, segments_X, valid_lens_x)
+        
+        #original = self.output(self.hidden(encoded_X[:, 0, :]))
+        
         #return self.output(result)
 
 class YelpDataset(torch.utils.data.Dataset):
@@ -136,9 +140,9 @@ class YelpDataset(torch.utils.data.Dataset):
 
 def Finetune():
     devices = d2l.try_all_gpus()
-    batch_size, max_len= 32, 512
+    batch_size, max_len= 5, 512
     train_test_rate = 0.9
-    lr, num_epochs = 1e-4, 3
+    lr, num_epochs = 1e-4, 10
     model_save_path = "models/bert_finetune.model"
     dataset_path = 'dataset/reviews_small.csv'
     print("Loading Pretraining Model...")
@@ -161,5 +165,37 @@ def Finetune():
         devices) 
     torch.save(net.state_dict(), model_save_path)
 
+def CompareParameter():
+    devices = d2l.try_all_gpus()
+    model_save_path = "models/bert_finetune.model"
+    originalBert, _ = load_pretrained_model('bert.small', num_hiddens=256, ffn_num_hiddens=512, num_heads=4,num_layers=2, dropout=0.1, max_len=512, devices=devices)
+    originalNet = BERTClassifier(originalBert)
+    newBert, _ = load_finetune_model(model_save_path, num_hiddens=256, ffn_num_hiddens=512, num_heads=4,num_layers=2, dropout=0.1, max_len=512, devices=devices)
+    newNet = newBert 
+    #print(newNet.bert.hidden.parameters())
+    for parameter in newNet.bert.hidden.parameters():
+        print(parameter)
+    
+    for parameter in originalNet.bert.hidden.parameters():
+        print(parameter)
+
+def Inference():
+    devices = d2l.try_all_gpus()
+    model_save_path = "models/bert_finetune.model"
+    dataset_path = 'dataset/reviews_small.csv'
+    batch_size, max_len= 5, 512
+    train_test_rate = 0.05
+    lr, num_epochs = 1e-4, 5
+    newBert, vocab = load_finetune_model(model_save_path, num_hiddens=256, ffn_num_hiddens=512, num_heads=4,num_layers=2, dropout=0.1, max_len=512, devices=devices)
+    newNet = newBert
+    print("Loading Test Dataset...")
+    testDataset = YelpDataset(dataset_path,max_len,vocab,True,train_test_rate)
+    test_iter = torch.utils.data.DataLoader(testDataset, batch_size)
+    print('testing...')
+    test_acc = d2l.evaluate_accuracy_gpu(newNet, test_iter)
+    print(f'test acc {test_acc:.3f}')
+
 if __name__ == "__main__":
     Finetune()
+    #CompareParameter()
+    #Inference()

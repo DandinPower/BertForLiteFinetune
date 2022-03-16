@@ -1,4 +1,6 @@
 import torch
+import torch.quantization
+
 
 # define a floating point model
 class M(torch.nn.Module):
@@ -69,9 +71,13 @@ def main():
     model = M()
     for parameter in model.parameters():
         print(parameter)
-    model = QuanModelParameter(model, qMin, qMax)
-    for parameter in model.parameters():
-        print(parameter)
+    #model = QuanModelParameter(model, qMin, qMax)
+
+    quantized_model = torch.quantization.quantize_dynamic(
+    model, {torch.nn.Linear}, dtype=torch.qint8
+    )
+    state_dict = quantized_model.state_dict()
+    print(state_dict)
 
 if __name__ == "__main__":
     main()

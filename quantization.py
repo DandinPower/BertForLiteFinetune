@@ -6,7 +6,7 @@ import torch.quantization
 class M(torch.nn.Module):
     def __init__(self):
         super(M, self).__init__()
-        self.fc = torch.nn.Linear(4, 4)
+        self.fc = torch.nn.Linear(1, 4)
 
     def forward(self, x):
         x = self.fc(x)
@@ -69,15 +69,17 @@ def QuanModelParameter(model, qMin, qMax):
 def main():
     qMin,qMax = -128,127
     model = M()
-    for parameter in model.parameters():
-        print(parameter)
-    #model = QuanModelParameter(model, qMin, qMax)
-
+    state_dict = model.state_dict()
+    print(state_dict)
+    model = QuanModelParameter(model, qMin, qMax)
+    state_dict = model.state_dict()
+    print(state_dict)
+    '''
     quantized_model = torch.quantization.quantize_dynamic(
     model, {torch.nn.Linear}, dtype=torch.qint8
     )
     state_dict = quantized_model.state_dict()
-    print(state_dict)
+    print(state_dict)'''
 
 if __name__ == "__main__":
     main()

@@ -2412,9 +2412,9 @@ class BERTModel(nn.Module):
     Defined in :numref:`subsec_nsp`"""
     def __init__(self, vocab_size, num_hiddens, norm_shape, ffn_num_input,
                  ffn_num_hiddens, num_heads, num_layers, dropout,
-                 max_len=1000, key_size=256, query_size=256, value_size=256,
-                 hid_in_features=256, mlm_in_features=256,
-                 nsp_in_features=256):
+                 max_len=512, key_size=768, query_size=768, value_size=768,
+                 hid_in_features=768, mlm_in_features=768,
+                 nsp_in_features=768):
         super(BERTModel, self).__init__()
         self.encoder = BERTEncoder(vocab_size, num_hiddens, norm_shape,
                     ffn_num_input, ffn_num_hiddens, num_heads, num_layers,

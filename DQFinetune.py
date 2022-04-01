@@ -40,7 +40,7 @@ class BERTClassifier(nn.Module):
         super(BERTClassifier, self).__init__()
         self.encoder = bert.encoder
         self.hidden = bert.hidden
-        self.output = nn.Linear(256, 3)
+        self.output = nn.Linear(768, 2)
 
     def forward(self, inputs):
         tokens_X, segments_X, valid_lens_x = inputs

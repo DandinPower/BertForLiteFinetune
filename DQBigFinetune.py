@@ -17,10 +17,10 @@ NORM_SHAPE = [768] #small:[256] base:[768]
 FFN_NUM_INPUT = 768 #small:[256] base:[768]
 
 DEVICES = d2l.try_all_gpus()[:1]
-BATCH_SIZE = 5
+BATCH_SIZE = 32
 TRAIN_TEST_RATE = 0.9
 LR = 1e-4
-NUM_EPOCHS = 10
+NUM_EPOCHS = 3
 MODEL_SAVE_PATH = "models/bert_base_finetune.model"
 DATASET_PATH = 'dataset/reviews_medium.csv'
 

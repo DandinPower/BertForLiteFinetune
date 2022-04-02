@@ -22,7 +22,7 @@ TRAIN_TEST_RATE = 0.9
 LR = 1e-4
 NUM_EPOCHS = 10
 MODEL_SAVE_PATH = "models/bert_base_finetune.model"
-DATASET_PATH = 'dataset/reviews_small.csv'
+DATASET_PATH = 'dataset/reviews_medium.csv'
 
 def load_pretrained_model():
     data_dir = PRETRAIN_DIR

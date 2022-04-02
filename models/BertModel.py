@@ -515,8 +515,8 @@ def corr2d(X, K):
 
 def evaluate_accuracy_gpu(net, data_iter, device=None):
     """Compute the accuracy for a model on a dataset using a GPU.
-
     Defined in :numref:`sec_lenet`"""
+
     if isinstance(net, nn.Module):
         net.eval()  # Set the model to evaluation mode
         if not device:
@@ -524,6 +524,7 @@ def evaluate_accuracy_gpu(net, data_iter, device=None):
     # No. of correct predictions, no. of predictions
     metric = d2l.Accumulator(2)
 
+    startTime = time.time()
     with torch.no_grad():
         for X, y in data_iter:
             if isinstance(X, list):
@@ -533,6 +534,7 @@ def evaluate_accuracy_gpu(net, data_iter, device=None):
                 X = X.to(device)
             y = y.to(device)
             metric.add(d2l.accuracy(net(X), y), d2l.size(y))
+    print(f'cost time: {round(time.time() - startTime,3)} sec')
     return metric[0] / metric[1]
 
 def train_ch6(net, train_iter, test_iter, num_epochs, lr, device):

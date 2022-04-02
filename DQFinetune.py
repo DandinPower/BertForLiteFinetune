@@ -219,9 +219,9 @@ def Inference():
     testDataset = YelpDataset(dataset_path,max_len,vocab,True,train_test_rate)
     test_iter = torch.utils.data.DataLoader(testDataset, batch_size)
     print('testing...')
-    test_acc = d2l.evaluate_accuracy_gpu(newBert, test_iter)
+    test_acc = d2l.evaluate_accuracy_gpu(newBert, test_iter,devices)
     print(f'original test acc {test_acc:.3f}')
-    test_acc = d2l.evaluate_accuracy_gpu(quantized_model, test_iter)
+    test_acc = d2l.evaluate_accuracy_gpu(quantized_model, test_iter,devices)
     print(f'quantization test acc {test_acc:.3f}')
 
 def print_size_of_model(model):

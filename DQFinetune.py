@@ -23,14 +23,14 @@ def load_pretrained_model(pretrained_dir, num_hiddens, ffn_num_hiddens,num_heads
     return bert, vocab
 
 def load_finetune_model(path, num_hiddens, ffn_num_hiddens,num_heads, num_layers, dropout, max_len, devices):
-    data_dir = 'data/bert.small.torch/'
+    data_dir = 'data/bert.base.torch/'
     #讀取vocab
     vocab = Vocab()
     vocab.idx_to_token = json.load(open(os.path.join(data_dir,
         'vocab.json')))
     vocab.token_to_idx = {token: idx for idx, token in enumerate(
         vocab.idx_to_token)}
-    model = BERTModel(vocab_size = len(vocab), num_hiddens = num_hiddens,ffn_num_hiddens = ffn_num_hiddens, num_heads = num_heads,num_layers = num_layers, dropout = dropout, max_len = max_len,norm_shape = [256],ffn_num_input = 256)
+    model = BERTModel(vocab_size = len(vocab), num_hiddens = num_hiddens,ffn_num_hiddens = ffn_num_hiddens, num_heads = num_heads,num_layers = num_layers, dropout = dropout, max_len = max_len,norm_shape = [768],ffn_num_input = 768)
     bert = BERTClassifier(model)
     bert.load_state_dict(torch.load(path))
     return bert, vocab
@@ -202,22 +202,26 @@ def CompareParameter():
 def Inference():
     devices = d2l.try_all_gpus()
     model_save_path = "models/bert_finetune.model"
-    dataset_path = 'dataset/reviews_small.csv'
+    dataset_path = 'dataset/reviews_medium.csv'
     batch_size, max_len= 32, 512
     train_test_rate = 0.05
     lr, num_epochs = 1e-4, 3
-    newBert, vocab = load_finetune_model(model_save_path, num_hiddens=256, ffn_num_hiddens=512, num_heads=4,num_layers=2, dropout=0.1, max_len=512, devices=devices)
-    print_size_of_model(newBert)
+    newBert, vocab = load_finetune_model(model_save_path, num_hiddens=768, ffn_num_hiddens=3072, num_heads=12,num_layers=12, dropout=0.1, max_len=512, devices=devices)
     quantized_model = torch.quantization.quantize_dynamic(
         newBert, {torch.nn.Linear}, dtype=torch.qint8
     )
+    print(f'FP32 Model Size: ',end='')
+    print_size_of_model(newBert)
+    print(f'INT8 Model Size: ',end='')
     print_size_of_model(quantized_model)
     print("Loading Test Dataset...")
     testDataset = YelpDataset(dataset_path,max_len,vocab,True,train_test_rate)
     test_iter = torch.utils.data.DataLoader(testDataset, batch_size)
     print('testing...')
+    test_acc = d2l.evaluate_accuracy_gpu(newBert, test_iter)
+    print(f'original test acc {test_acc:.3f}')
     test_acc = d2l.evaluate_accuracy_gpu(quantized_model, test_iter)
-    print(f'test acc {test_acc:.3f}')
+    print(f'quantization test acc {test_acc:.3f}')
 
 def print_size_of_model(model):
     torch.save(model.state_dict(), "temp.p")
@@ -225,7 +229,7 @@ def print_size_of_model(model):
     os.remove('temp.p')
 
 if __name__ == "__main__":
-    Finetune()
+    #Finetune()
     #DynamicQuantizationFinetune()
     #CompareParameter()
-    #Inference()
+    Inference()

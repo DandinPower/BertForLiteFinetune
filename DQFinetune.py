@@ -32,6 +32,7 @@ def load_finetune_model(path, num_hiddens, ffn_num_hiddens,num_heads, num_layers
         vocab.idx_to_token)}
     model = BERTModel(vocab_size = len(vocab), num_hiddens = num_hiddens,ffn_num_hiddens = ffn_num_hiddens, num_heads = num_heads,num_layers = num_layers, dropout = dropout, max_len = max_len,norm_shape = [768],ffn_num_input = 768)
     bert = BERTClassifier(model)
+    bert = nn.DataParallel(bert)
     bert.load_state_dict(torch.load(path))
     return bert, vocab
 

@@ -3,45 +3,57 @@ import multiprocessing
 import os
 import torch
 from torch import nn
-import pandas as pd # 引用套件並縮寫為 pd  
+import pandas as pd 
 from models.BertModel import *
 from models.Memory import IOCounter,MemoryCounter
+PRETRAIN_DIR = 'data/bert.small.torch/'
+NUM_HIDDENS = 256  #small:256 base:768
+FFN_NUM_HIDDENS = 512 #small:512 base:3072
+NUM_HEADS = 4 #small:4 base:12
+NUM_LAYERS = 2 #small:2 base:12
+DROPOUT = 0.1
+MAX_LEN = 512
+NORM_SHAPE = [256] #small:[256] base:[768]
+FFN_NUM_INPUT = 256 #small:[256] base:[768]
 
-def load_pretrained_model(pretrained_dir, num_hiddens, ffn_num_hiddens,num_heads, num_layers, dropout, max_len, devices):
-    data_dir = pretrained_dir
-    data_dir = 'data/bert.base.torch/'
-    #讀取vocab
+DEVICES = d2l.try_all_gpus()[:1]
+BATCH_SIZE = 5
+TRAIN_TEST_RATE = 0.9
+LR = 1e-4
+NUM_EPOCHS = 10
+MODEL_SAVE_PATH = "models/bert_finetune.model"
+DATASET_PATH = 'dataset/reviews_small.csv'
+
+def load_pretrained_model():
+    data_dir = PRETRAIN_DIR
     vocab = Vocab()
-    vocab.idx_to_token = json.load(open(os.path.join(data_dir,
-        'vocab.json')))
-    vocab.token_to_idx = {token: idx for idx, token in enumerate(
-        vocab.idx_to_token)}
-    #加載預訓練模組
-    bert = BERTModel(vocab_size = len(vocab), num_hiddens = num_hiddens,ffn_num_hiddens = ffn_num_hiddens, num_heads = num_heads,num_layers = num_layers, dropout = dropout, max_len = max_len,norm_shape = [768],ffn_num_input = 768)
-    bert.load_state_dict(torch.load(os.path.join(data_dir,
-                                                 'pretrained.params')))
+    vocab.idx_to_token = json.load(open(os.path.join(data_dir,'vocab.json')))
+    vocab.token_to_idx = {token: idx for idx, token in enumerate(vocab.idx_to_token)}
+    bert = BERTModel(vocab_size = len(vocab), num_hiddens = NUM_HIDDENS,ffn_num_hiddens = FFN_NUM_HIDDENS, num_heads = NUM_HEADS,num_layers = NUM_LAYERS, dropout = DROPOUT, max_len = MAX_LEN,norm_shape = NORM_SHAPE,ffn_num_input = FFN_NUM_INPUT)
+    bert.load_state_dict(torch.load(os.path.join(data_dir,'pretrained.params')))
     return bert, vocab
 
-def load_finetune_model(path, num_hiddens, ffn_num_hiddens,num_heads, num_layers, dropout, max_len, devices):
-    data_dir = 'data/bert.base.torch/'
-    #讀取vocab
+def load_finetune_model(path):
+    data_dir = PRETRAIN_DIR
     vocab = Vocab()
-    vocab.idx_to_token = json.load(open(os.path.join(data_dir,
-        'vocab.json')))
-    vocab.token_to_idx = {token: idx for idx, token in enumerate(
-        vocab.idx_to_token)}
-    model = BERTModel(vocab_size = len(vocab), num_hiddens = num_hiddens,ffn_num_hiddens = ffn_num_hiddens, num_heads = num_heads,num_layers = num_layers, dropout = dropout, max_len = max_len,norm_shape = [768],ffn_num_input = 768)
+    vocab.idx_to_token = json.load(open(os.path.join(data_dir,'vocab.json')))
+    vocab.token_to_idx = {token: idx for idx, token in enumerate(vocab.idx_to_token)}
+    model = BERTModel(vocab_size = len(vocab), num_hiddens = NUM_HIDDENS,ffn_num_hiddens = FFN_NUM_HIDDENS, num_heads = NUM_HEADS,num_layers = NUM_LAYERS, dropout = DROPOUT, max_len = MAX_LEN,norm_shape = NORM_SHAPE,ffn_num_input = FFN_NUM_INPUT)
     bert = BERTClassifier(model)
-    bert = nn.DataParallel(bert, device_ids=devices).to(devices[0])
     bert.load_state_dict(torch.load(path))
     return bert, vocab
+
+def print_size_of_model(model):
+    torch.save(model.state_dict(), "temp.p")
+    print('Size (MB):', os.path.getsize("temp.p")/1e6)
+    os.remove('temp.p')
 
 class BERTClassifier(nn.Module):
     def __init__(self, bert):
         super(BERTClassifier, self).__init__()
         self.encoder = bert.encoder
         self.hidden = bert.hidden
-        self.output = nn.Linear(768, 2)
+        self.output = nn.Linear(NUM_HIDDENS, 2)
 
     def forward(self, inputs):
         tokens_X, segments_X, valid_lens_x = inputs
@@ -130,107 +142,44 @@ class YelpDataset(torch.utils.data.Dataset):
         return len(self.all_tokens_ids)
 
 def Finetune():
-    devices = d2l.try_all_gpus()
-    batch_size, max_len= 32, 512
-    train_test_rate = 0.9
-    lr, num_epochs = 1e-4, 3
-    model_save_path = "models/bert_finetune.model"
-    dataset_path = 'dataset/reviews_medium.csv'
     print("Loading Pretraining Model...")
     #重新微調
-    bert, vocab = load_pretrained_model('bert.small', num_hiddens=768, ffn_num_hiddens=3072, num_heads=12,num_layers=12, dropout=0.1, max_len=512, devices=devices)
+    bert, vocab = load_pretrained_model()
     net = BERTClassifier(bert)
     #讀取訓練過的
-    #bert, vocab = load_finetune_model(model_save_path, num_hiddens=256, ffn_num_hiddens=512, num_heads=4,num_layers=2, dropout=0.1, max_len=512, devices=devices)
+    #bert, vocab = load_finetune_model(MODEL_SAVE_PATH)
     #net = bert
     print("Loading Train Dataset...")
-    trainDataset = YelpDataset(dataset_path,max_len,vocab,True,train_test_rate)
-    train_iter = torch.utils.data.DataLoader(trainDataset, batch_size, shuffle=True)
+    trainDataset = YelpDataset(DATASET_PATH,MAX_LEN,vocab,True,TRAIN_TEST_RATE)
+    train_iter = torch.utils.data.DataLoader(trainDataset, BATCH_SIZE, shuffle=True)
     print("Loading Test Dataset...")
-    testDataset = YelpDataset(dataset_path,max_len,vocab,False,train_test_rate)
-    test_iter = torch.utils.data.DataLoader(testDataset, batch_size)
+    testDataset = YelpDataset(DATASET_PATH,MAX_LEN,vocab,False,TRAIN_TEST_RATE)
+    test_iter = torch.utils.data.DataLoader(testDataset, BATCH_SIZE)
     print("training...")
-    trainer = torch.optim.Adam(net.parameters(), lr=lr)
+    trainer = torch.optim.Adam(net.parameters(), lr=LR)
     loss = nn.CrossEntropyLoss(reduction='none')
-    finetune_train(net, train_iter, test_iter, loss, trainer, num_epochs, model_save_path,
-        devices) 
-    torch.save(net.state_dict(), model_save_path)
-
-def DynamicQuantizationFinetune():
-    devices = d2l.try_all_gpus()
-    batch_size, max_len= 32, 512
-    train_test_rate = 0.9
-    lr, num_epochs = 1e-4, 3
-    model_save_path = "models/bert_finetune_quantization.model"
-    dataset_path = 'dataset/reviews_small.csv'
-    print("Loading Pretraining Model...")
-    #重新微調
-    bert, vocab = load_pretrained_model('bert.small', num_hiddens=256, ffn_num_hiddens=512, num_heads=4,num_layers=2, dropout=0.1, max_len=512, devices=devices)
-    net = BERTClassifier(bert)
-    quantized_model = torch.quantization.quantize_dynamic(
-        net, {torch.nn.Linear}, dtype=torch.qint8
-    )
-    #讀取訓練過的
-    #bert, vocab = load_finetune_model(model_save_path, num_hiddens=256, ffn_num_hiddens=512, num_heads=4,num_layers=2, dropout=0.1, max_len=512, devices=devices)
-    #net = bert
-    print("Loading Train Dataset...")
-    trainDataset = YelpDataset(dataset_path,max_len,vocab,True,train_test_rate)
-    train_iter = torch.utils.data.DataLoader(trainDataset, batch_size, shuffle=True)
-    print("Loading Test Dataset...")
-    testDataset = YelpDataset(dataset_path,max_len,vocab,False,train_test_rate)
-    test_iter = torch.utils.data.DataLoader(testDataset, batch_size)
-    print("training...")
-    trainer = torch.optim.Adam(quantized_model.parameters(), lr=lr)
-    loss = nn.CrossEntropyLoss(reduction='none')
-    finetune_train(quantized_model, train_iter, test_iter, loss, trainer, num_epochs, model_save_path,
-        devices) 
-    torch.save(quantized_model.state_dict(), model_save_path)
-
-def CompareParameter():
-    devices = d2l.try_all_gpus()
-    model_save_path = "models/bert_finetune.model"
-    originalBert, _ = load_pretrained_model('bert.small', num_hiddens=256, ffn_num_hiddens=512, num_heads=4,num_layers=2, dropout=0.1, max_len=512, devices=devices)
-    originalNet = BERTClassifier(originalBert)
-    newBert, _ = load_finetune_model(model_save_path, num_hiddens=256, ffn_num_hiddens=512, num_heads=4,num_layers=2, dropout=0.1, max_len=512, devices=devices)
-    newNet = newBert 
-    #print(newNet.bert.hidden.parameters())
-    for parameter in newNet.bert.hidden.parameters():
-        print(parameter)
-    
-    for parameter in originalNet.bert.hidden.parameters():
-        print(parameter)
+    finetune_train(net, train_iter, test_iter, loss, trainer, NUM_EPOCHS, MODEL_SAVE_PATH,
+        DEVICES) 
+    torch.save(net.state_dict(), MODEL_SAVE_PATH)
 
 def Inference():
-    devices = d2l.try_all_gpus()
-    model_save_path = "models/bert_finetune.model"
-    dataset_path = 'dataset/reviews_medium.csv'
-    batch_size, max_len= 32, 512
-    train_test_rate = 0.05
-    lr, num_epochs = 1e-4, 3
-    newBert, vocab = load_finetune_model(model_save_path, num_hiddens=768, ffn_num_hiddens=3072, num_heads=12,num_layers=12, dropout=0.1, max_len=512, devices=devices)
-    quantized_model = torch.quantization.quantize_dynamic(
-        newBert, {torch.nn.Linear}, dtype=torch.qint8
-    )
+    model, vocab = load_finetune_model(MODEL_SAVE_PATH)
+    quantized_model = torch.quantization.quantize_dynamic(model, {torch.nn.Linear}, dtype=torch.qint8)
     print(f'FP32 Model Size: ',end='')
-    print_size_of_model(newBert)
+    print_size_of_model(model)
     print(f'INT8 Model Size: ',end='')
     print_size_of_model(quantized_model)
     print("Loading Test Dataset...")
-    testDataset = YelpDataset(dataset_path,max_len,vocab,True,train_test_rate)
-    test_iter = torch.utils.data.DataLoader(testDataset, batch_size)
+    testDataset = YelpDataset(DATASET_PATH,MAX_LEN,vocab,False,TRAIN_TEST_RATE)
+    test_iter = torch.utils.data.DataLoader(testDataset, BATCH_SIZE)
     print('testing...')
-    test_acc = d2l.evaluate_accuracy_gpu(newBert, test_iter,devices)
+    test_acc = d2l.evaluate_accuracy_gpu(model, test_iter)
     print(f'original test acc {test_acc:.3f}')
-    test_acc = d2l.evaluate_accuracy_gpu(quantized_model, test_iter,devices)
+    test_acc = d2l.evaluate_accuracy_gpu(quantized_model, test_iter)
     print(f'quantization test acc {test_acc:.3f}')
 
-def print_size_of_model(model):
-    torch.save(model.state_dict(), "temp.p")
-    print('Size (MB):', os.path.getsize("temp.p")/1e6)
-    os.remove('temp.p')
-
 if __name__ == "__main__":
-    #Finetune()
-    #DynamicQuantizationFinetune()
-    #CompareParameter()
+    print('Finetuning...')
+    Finetune()
+    print('\n\nInferencing...')
     Inference()

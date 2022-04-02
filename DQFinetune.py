@@ -16,13 +16,13 @@ MAX_LEN = 512
 NORM_SHAPE = [256] #small:[256] base:[768]
 FFN_NUM_INPUT = 256 #small:[256] base:[768]
 
-DEVICES = d2l.try_all_gpus()[:1]
+DEVICES = d2l.try_all_gpus()[:2]
 BATCH_SIZE = 32
 TRAIN_TEST_RATE = 0.9
 LR = 1e-4
 NUM_EPOCHS = 3
 MODEL_SAVE_PATH = "models/bert_finetune.model"
-DATASET_PATH = 'dataset/reviews_medium.csv'
+DATASET_PATH = 'dataset/reviews_small.csv'
 
 def load_pretrained_model():
     data_dir = PRETRAIN_DIR
